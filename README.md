@@ -87,6 +87,8 @@ Be sure to adhere to the contribution guidelines outlined in the [CONTRIBUTING.m
 ## Maintainers
 
 - **Niels Klomp** - [Email](mailto:nklomp@4sure.tech)
+- **Eelco Klaver** - [Email](mailto:eelco.klaver@credenco.com)
+- **Harmen van der Kooij** - [Email](mailto:harmen@fides.community)
 
 ## License
 

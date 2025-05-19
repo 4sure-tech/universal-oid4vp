@@ -11,14 +11,14 @@ const config: Config = {
     favicon: 'img/favicon.ico',
 
     // Set the production url of your site here
-    url: 'https://4sure-tech.github.io',
+    url: 'https://fidescommunity.github.io',
     // Set the /<baseUrl>/ pathname under which your site is served
     // For GitHub pages deployment, it is often '/<projectName>/'
     baseUrl: '/universal-oid4vp/',
 
     // GitHub pages deployment config.
     // If you aren't using GitHub pages, you don't need these.
-    organizationName: '4sure-tech', // Usually your GitHub org/user name.
+    organizationName: 'FIDEScommunity', // Usually your GitHub org/user name.
     projectName: 'universal-oid4vp', // Usually your repo name.
     trailingSlash: false,
 

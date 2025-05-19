@@ -8,9 +8,8 @@ info:
     Due to privacy concerns, it favors POST methods with payloads instead of query/path parameters 
     to reduce log-leakage of sensitive values like query IDs or correlation identifiers.
   contact:
-    name: Niels Klomp
-    url: https://4sure.tech
-    email: nklomp@4sure.tech
+    name: Fides Community
+    url: https://github.com/FIDEScommunity/universal-oid4vp
   license:
     name: Apache2
 
@@ -31,7 +30,7 @@ tags:
 paths:
   /oid4vp/backend/auth/requests:
     post:
-      summary: Create Authorization Request and session
+      summary: Create authorization request and session
       description: |
         Creates a new OID4VP Authorization Request that can be used to request Digital Credentials from a wallet.
         Returns URIs needed to initiate the auth flow and check its status. The queryId passed in needs to be known to the agent. This endpoint is protected using OAuth2/OIDC normally with a confidential client.  Do not call from the frontend!
@@ -86,6 +85,8 @@ paths:
       description: Deletes all state associated with an authorization request. Use for cleanup after completion or timeout.
       tags:
         - Backend
+      requestBody:
+        $ref: '#/components/requestBodies/DeleteAuthorizationRequestBody'
       responses:
         '204':
           description: Authorization request state removed successfully
@@ -193,6 +194,18 @@ components:
                     - authorization_request_retrieved
                     - authorization_response_verified
                     - error
+    DeleteAuthorizationRequestBody:
+      description: Delete an authorization request. Could also be perfomred automatically depending on RP implementation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DeleteAuthorizationRequest'
+          examples:
+            Get status:
+              value:
+                correlation_id: my-business-key-or-uuid
+                query_id: example-dcql-id
+
     AuthorizationStatusRequestBody:
       description: Request for current status of the session
       content:
@@ -204,7 +217,7 @@ components:
               value:
                 correlation_id: my-business-key-or-uuid
                 query_id: example-dcql-id
-
+  
   schemas:
     CreateAuthorizationRequest:
       type: object
@@ -224,7 +237,7 @@ components:
           type: string
           description: The client id and schema as defined in RFC6749 (client_id) and OID4VP (scheme)
           example: redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Fcb
-        reponsse_type:
+        response_type:
           $ref: '#/components/schemas/ResponseType'
         response_mode:
           $ref: '#/components/schemas/ResponseMode'
@@ -242,6 +255,19 @@ components:
         callback:
           $ref: '#/components/schemas/CallbackOpts'
 
+    DeleteAuthorizationRequest:
+      type: object
+      required: [correlation_id, query_id]
+      properties:
+        correlation_id:
+          type: string
+          description: Unique identifier for the session
+          example: 2cc29d1c-7d00-46f8-b0ae-b4779d2ff143
+        query_id:
+          type: string
+          description: Identifier for the presentation definition that specifies which credentials are required
+          example: ExampleSdJwtId
+    
     AuthorizationStatusRequest:
       type: object
       required: [correlation_id, query_id]
@@ -253,18 +279,21 @@ components:
         query_id:
           type: string
           description: Identifier for the presentation definition that specifies which credentials are required
-          example: PensionSdJwt
+          example: ExampleSdJwtId
         verified_data:
-          type: object
-          properties:
-            modes:
-              type: array
-              items:
-                $ref: '#/components/schemas/VerifiedDataMode'
-          description: Controls what verified data to include in the response. Only applies when status is 'authorization_response_verified'. Either nothing (omit), or a combination of the vp_tokens and credential data deserialized (credentials_deserialized), depedning on the modes selected
-          example:
-            - vp_token
-            - credentials_deserialized
+          $ref: '#/components/schemas/VerifiedDataOpts'
+    
+    VerifiedDataOpts:
+      type: object
+      properties:
+        modes:
+          type: array
+          items:
+            $ref: '#/components/schemas/VerifiedDataMode'
+      description: Controls what verified data to include in the response. Only applies when status is 'authorization_response_verified'. Either nothing (omit), or a combination of the vp_tokens and credential data deserialized (credentials_deserialized), depedning on the modes selected
+      example:
+        - vp_token
+        - credentials_deserialized
 
     CreateAuthorizationRequestResponse:
       type: object
@@ -281,7 +310,7 @@ components:
         request_uri:
           type: string
           description: (Deep)link URI that initiates the authentication flow by redirect. The wallet will use this value. Should be part of a redirect, link or QR code. This API requires Auth Request be references only, meaning `request_uri` only and no `request`
-          example: 'openid-vc://?request_uri=https://example.com/siop/definitions/PensionSdJwt/auth-requests/b5cab09e-7c08-42c9-870b-c2b83a2c8acd'
+          example: 'openid-vc://?request_uri=https://example.com/siop/definitions/ExampleSdJwtId/auth-requests/b5cab09e-7c08-42c9-870b-c2b83a2c8acd'
         status_uri:
           type: string
           description: Endpoint URL for checking the status of the authentication request, conforming to this OpenAPI specification
@@ -306,7 +335,7 @@ components:
           $ref: '#/components/schemas/Error'
         query_id:
           description: Identifier for the presentation definition that specifies which credentials are required
-          example: PensionSdJwt
+          example: ExampleSdJwtId
           type: string
         last_updated:
           type: integer
@@ -317,15 +346,19 @@ components:
 
     RequestUriMethod:
       type: string
+      description: Determines whether the request_uri should be access by a GET or by a POST by the wallet
       enum: [get, post]
+      default: get
 
     ResponseType:
       type: string
-      enum: [vp_token]
+      enum: [vp_token, id_token]
       default: vp_token
+      description: The OID4VP response type to use. FIXME Needs to be changed since response_type is a whitespace delimited strung and thus enums are not the correct approach
 
     ResponseMode:
       type: string
+      description: Whether to use regular authorization responses or encrypted (direct_post.jwt) authorization responses
       enum: [direct_post, direct_post.jwt]
       default: direct_post
 
@@ -352,16 +385,27 @@ components:
       properties:
         authorization_response:
           $ref: '#/components/schemas/AuthorizationResponsePayload'
-        vp_token:
+        credential_claims:
           type: array
           items:
-            $ref: '#/components/schemas/VpToken'
-        credential_claims_deserialized:
-          type: array
-          items:
-            type: object
-            additionalProperties: true
-          description: All the credentials received deserialized to JSON part of an array. Meaning (SD-)JWTs are represented as JSON object. The same for Mdos. For the latter different implementers of RP Agents could use different methods unfortunately, so there is no stability guarantee to find certain claims in the exact same spot, or even with the exact same keys between different RP agent implementations!
+            $ref: '#/components/schemas/VerifiedClaimsValue'
+
+    VerifiedClaimsValue:
+      type: object
+      description: Represents a single credential with its claims and type
+      required: [id, type]
+      properties:
+        id:
+          type: string
+          description: The id of the query. Can be a presentation exchange id, a DCQL query or query set Id. Used by the RP to match the credential against the query
+        type:
+          type: string
+          description: The digital credential type. Can be a vct value, or for instance a json-ld type
+        claims:
+          type: object
+          additionalProperties:
+            type: string
+          description: The claims returned and deserialized in the form of a map, where the keys represent the claim names
 
     VpToken:
       oneOf:
@@ -424,6 +468,8 @@ components:
           items:
             $ref: '#/components/schemas/AuthorizationStatus'
           description: Limit the callbacks to certain statuses. If not provided or an empty array is provided, all statuses will be assumed
+        verified_data:
+          $ref: '#/components/schemas/VerifiedDataOpts'
         url:
           type: string
           description: The callback url for status updates
